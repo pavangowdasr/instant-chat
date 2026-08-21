@@ -47,7 +47,7 @@ const createRoom = asyncHandler(async (req, res) => {
     );
   }
 
-  const roomId = crypto.randomUUID();
+  const roomId = crypto.randomBytes(6).toString("hex");
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -150,19 +150,35 @@ const joinRoom = asyncHandler(async (req, res) => {
       runValidators: true,
     },
   );
-  if (room.modifiedCount === 0) {
+  if (room.matchedCount === 0) {
     throw new AppError(
       "Username already exists, pick another username",
       400,
       "USERNAME_ALREADY_EXISTS",
     );
   }
-  return res.status(200).json({
-    success: true,
-    message: "Welcome",
-    roomId,
-    username,
-  });
+  const accessToken = jwt.sign(
+    {
+      roomId: existingRoom.roomId,
+      username,
+    },
+    config.JWT_ACCESS_TOKEN,
+    {
+      expiresIn: "1d",
+    },
+  );
+  return res
+    .cookie("accessToken", accessToken, {
+      ...cookieOptions,
+      maxAge: 24 * 60 * 60 * 1000,
+    })
+    .status(200)
+    .json({
+      success: true,
+      message: "Welcome",
+      roomId,
+      username,
+    });
 });
 
 export { createRoom, joinRoom };
